@@ -1,4 +1,32 @@
 #!/usr/bin/env python3
+# bwclean3.py - Bitwarden Duplicate Entry Remover v3
+#
+# Forked from topisani/bwclean2.py (JSON port)
+#   https://gist.github.com/topisani/066b63b87346afe76ffdf0998d4ebc2f
+# Originally serif/bwclean2.py (CSV, 2018)
+#   https://gist.github.com/serif/a1281c676cf5a1f77af6ff1a25255a85
+#
+# Fixes three bugs introduced by the CSV->JSON port:
+#
+# 1. Item fan-out. v2 stored each item once per URI in hash_items, so
+#    list(hash_items.values()) emitted an item with N URIs N times. A 1758-item
+#    vault produced 1126 items, of which ~200 were repeats of the same objects.
+#    v3 keys per item: all of an item's URI hashes form one group, and groups
+#    merge when they share any key.
+#
+# 2. URI-less items never deduplicated. v2 sent items with no login.uris
+#    straight to keep_items untouched - secure notes, cards, identities, and
+#    Wi-Fi/passkey logins with empty uris arrays. v3 falls back to a hash of
+#    the item's content (everything except id/dates/passwordHistory) so exact
+#    copies collapse.
+#
+# 3. Scheme-less URIs collided. urlparse('jarvis').netloc is '', as is
+#    urlparse('com.amazon.dee.app').netloc, so every Android package ID and
+#    bare hostname hashed to the same empty domain. v3 falls back to path.
+#
+# Also: rem file no longer contains items still present in the out file, and
+# the report counts items rather than hashes. Idempotent - a second pass over
+# its own output removes 0.
 import sys
 import json
 import hashlib
